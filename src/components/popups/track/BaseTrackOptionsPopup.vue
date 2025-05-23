@@ -176,6 +176,8 @@ import BaseSavedTrackDeleteModal
   from '@/components/modals/savedTracks/BaseSavedTrackDeleteModal.vue'
 import BaseRecommendationDeleteModal
   from '@/components/modals/recommendation/BaseRecommendationDeleteModal.vue'
+import BaseOption from '@/components/popups/options/BaseOption.vue' // Added import
+import saveTrackToLocalFolder from '@/helpers/actions/audioFile.js' // Added import
 import {
   track as formatTrackShareData
 } from '@/helpers/formatters/share'
@@ -203,7 +205,8 @@ export default {
     BaseFavoriteDeleteModal,
     BasePlaylistTrackDeleteModal,
     BaseSavedTrackDeleteModal,
-    BaseRecommendationDeleteModal
+    BaseRecommendationDeleteModal,
+    BaseOption // Added component
   },
   props: {
     trackData: {
@@ -236,7 +239,12 @@ export default {
     isWithDeleteOption: Boolean,
     isDeleteWithRedirect: Boolean,
     isClearable: Boolean,
-    isShowToTop: Boolean
+      isShowToTop: Boolean,
+      // Prop to control visibility of the new option, similar to others
+      isWithSaveToLocalFolderOption: {
+        type: Boolean,
+        default: true // Assuming it should be shown by default if conditions met
+      }
   },
   emits: [
     'linkClick',
@@ -265,8 +273,13 @@ export default {
           this.isRenderShareOption ||
           this.isWithExternalLinkOption ||
           this.isWithCloseOption ||
-          this.isWithDeleteOption
+          this.isWithDeleteOption ||
+          this.isRenderSaveToLocalFolderOptionInternal // Added for combined logic
       )
+    },
+    isRenderSaveToLocalFolderOptionInternal () { // Renamed to avoid conflict if a prop with same name exists
+      return this.isWithSaveToLocalFolderOption &&
+        this.trackData?.audio?.link
     },
     isRenderLibraryOption () {
       return (
@@ -329,6 +342,31 @@ export default {
     }
   },
   methods: {
+    async handleSaveToLocalFolderClick () {
+      if (!this.isRenderSaveToLocalFolderOptionInternal) return;
+
+      try {
+        const result = await saveTrackToLocalFolder(
+          this.trackData
+        );
+
+        if (result) {
+          this.showSuccessNotification({
+            // TODO: Add i18n
+            message: 'Track saved to local folder successfully!'
+          });
+        } else if (result === null) {
+          // User cancelled dialog - optional: show info or log
+          console.log('User cancelled saving track to local folder.');
+        }
+      } catch (error) {
+        console.error('Failed to save track to local folder:', error);
+        this.showErrorNotification({
+          // TODO: Add i18n
+          message: error?.message || 'An unknown error occurred while saving the track.'
+        });
+      }
+    },
     handleLinkClick () {
       this.$emit(
         'linkClick'
